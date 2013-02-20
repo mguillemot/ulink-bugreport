@@ -17,6 +17,7 @@ public class ManagerScript : uLink.MonoBehaviour
 
     public Rect Rect = new Rect(300, 0, 250, 250);
     public GameObject PlayerPrefab;
+    public GameObject EnemyPrefab;
     public GameObject[] Groups;
 
     public bool isServer { get; private set; }
@@ -74,15 +75,31 @@ public class ManagerScript : uLink.MonoBehaviour
                     GUILayout.Label(playerScript.networkView.owner + " (" + playerScript.identity.name + ") in group " + playerScript.networkView.group);
                 }
             }
+
+            GUILayout.Space(10);
+
+            GUILayout.Label("Enemies:");
+            foreach (EnemyScript enemyScript in FindObjectsOfType(typeof(EnemyScript)))
+            {
+                GUILayout.Label("#" + enemyScript.networkView.viewID + " in group " + enemyScript.networkView.group);
+            }
         }
         GUILayout.EndArea();
     }
 
     public Vector3 GetRandomPositionForGroup(int group)
     {
-        var position = Groups[@group - 1].transform.position;
-        position.x += Random.Range(-300f, 300f);
-        position.y += Random.Range(-300f, 300f);
+        Vector3 position;
+        if (group >= 1 && group <= 3)
+        {
+            position = Groups[group].transform.position;
+            position.x += Random.Range(-300f, 300f);
+            position.y += Random.Range(-300f, 300f);
+        }
+        else
+        {
+            position = Groups[0].transform.position;
+        }
         position.z = 0;
         return position;
     }
@@ -105,9 +122,12 @@ public class ManagerScript : uLink.MonoBehaviour
         Debug.Log("Server started on port " + uLink.Network.listenPort);
         isServer = true;
 
-        uLink.Network.SetGroupFlags(1, uLink.NetworkGroupFlags.HideGameObjects);
-        uLink.Network.SetGroupFlags(2, uLink.NetworkGroupFlags.HideGameObjects);
-        uLink.Network.SetGroupFlags(3, uLink.NetworkGroupFlags.HideGameObjects);
+        for (int i = 1; i <= 10000; i++)
+        {
+            uLink.Network.SetGroupFlags(i, uLink.NetworkGroupFlags.HideGameObjects);
+        }
+
+        uLink.Network.Instantiate(EnemyPrefab, GetRandomPositionForGroup(1), Quaternion.identity, 1);
     }
 
     void uLink_OnPlayerApproval(uLink.NetworkPlayerApproval approval)
@@ -120,10 +140,11 @@ public class ManagerScript : uLink.MonoBehaviour
         var identity = availableIdentities[0];
         availableIdentities.RemoveAt(0);
 
-        var initialGroup = 2;
+        var initialGroup = 0; // Do not start the player in a group
         Debug.Log("Instantiating color " + identity.name + " for player " + player + " in group " + initialGroup);
 
         uLink.Network.Instantiate(player, PlayerPrefab, GetRandomPositionForGroup(initialGroup), Quaternion.identity, initialGroup, identity);
+        //uLink.Network.AddPlayerToGroup(player, 2);
     }
 
     void uLink_OnPlayerDisconnected(uLink.NetworkPlayer player)
